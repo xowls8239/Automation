@@ -1,0 +1,7 @@
+﻿__pycache__/
+*.pyc
+.venv/
+venv/
+config_accounts.json
+*.xlsx
+.DS_Store
