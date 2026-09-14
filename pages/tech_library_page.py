@@ -1,4 +1,4 @@
-﻿import os
+import os
 import json
 import math
 import time
@@ -14,11 +14,7 @@ from PySide6.QtCore import Qt, QThread, Signal
 
 CONFIG_PATH = "config_accounts.json"
 
-# ==========================================
-# 1. 네이버 토큰 검증 헬퍼
-# ==========================================
 def verify_naver_token(client_id: str, client_secret: str) -> tuple[bool, str]:
-    """실제 네이버 서버와 통신해 토큰 발급(로그인 연동) 성공 여부 검증"""
     if not client_id.strip() or not client_secret.strip():
         return False, "애플리케이션 ID 또는 시크릿 키가 입력되지 않았습니다."
     try:
@@ -52,9 +48,6 @@ def verify_naver_token(client_id: str, client_secret: str) -> tuple[bool, str]:
     except Exception as e:
         return False, f"서버 통신 실패: {str(e)}"
 
-# ==========================================
-# 2. 계정 연동 및 로그인 설정 다이얼로그
-# ==========================================
 class AccountLinkDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -130,9 +123,6 @@ class AccountLinkDialog(QDialog):
         QMessageBox.information(self, "저장 완료", "스토어 연동 정보가 정상 저장되었습니다.")
         self.accept()
 
-# ==========================================
-# 3. 스토어 전수 추출 백그라운드 워커
-# ==========================================
 class StoreSyncWorker(QThread):
     progress_signal = Signal(int, int, str, dict)
     finished_signal = Signal(int, str)
@@ -246,9 +236,6 @@ class StoreSyncWorker(QThread):
     def stop(self):
         self.is_running = False
 
-# ==========================================
-# 4. 기술 라이브러리 메인 페이지
-# ==========================================
 class TechLibraryPage(QWidget):
     def __init__(self):
         super().__init__()
@@ -259,7 +246,6 @@ class TechLibraryPage(QWidget):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
 
-        # 상단 제어 바
         top_panel = QFrame()
         top_panel.setStyleSheet("background-color: #2b2d30; border-radius: 6px; padding: 10px;")
         top_layout = QHBoxLayout(top_panel)
@@ -270,16 +256,13 @@ class TechLibraryPage(QWidget):
         self.combo_channel.setStyleSheet("background-color: #1e1f22; color: #dfe1e5; padding: 6px; min-width: 120px;")
         self.combo_channel.currentIndexChanged.connect(self.check_channel_status)
 
-        # 연동 상태 인디케이터 배지
         self.lbl_auth_badge = QLabel("● 연동 확인 중")
         self.lbl_auth_badge.setStyleSheet("color: #e5c07b; font-size: 12px; font-weight: bold; margin-right: 5px;")
 
-        # 계정 연동 / 로그인 설정 버튼
         self.btn_account_config = QPushButton("스토어 계정 연동 관리")
         self.btn_account_config.setStyleSheet("background-color: #43454a; color: white; padding: 8px 12px; font-weight: bold; border-radius: 4px;")
         self.btn_account_config.clicked.connect(self.open_account_dialog)
 
-        # 동기화 제어 버튼
         self.btn_sync = QPushButton("스토어 전수 규격 동기화")
         self.btn_sync.setStyleSheet("background-color: #365880; color: white; padding: 8px 15px; font-weight: bold; border-radius: 4px;")
         self.btn_sync.clicked.connect(self.start_sync)
@@ -305,7 +288,6 @@ class TechLibraryPage(QWidget):
         top_layout.addWidget(self.btn_export_chunks)
         layout.addWidget(top_panel)
 
-        # 데이터 테이블
         self.table = QTableWidget(0, 7)
         self.table.setHorizontalHeaderLabels([
             "LOT 식별자", "품목 규격명", "카테고리 ID", "출하가", "재고", "도면 CDN 주소", "등록일자"
@@ -317,7 +299,6 @@ class TechLibraryPage(QWidget):
         """)
         layout.addWidget(self.table)
 
-        # 하단 프로그레스 바
         bottom_layout = QHBoxLayout()
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
@@ -332,7 +313,6 @@ class TechLibraryPage(QWidget):
         bottom_layout.addWidget(self.lbl_status)
         layout.addLayout(bottom_layout)
 
-        # 시작 시 현재 채널 연동 여부 체크
         self.check_channel_status()
 
     def check_channel_status(self):
