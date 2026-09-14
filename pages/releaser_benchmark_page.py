@@ -2,6 +2,7 @@ import os
 import json
 import time
 import base64
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QTableWidget, QTableWidgetItem, QHeaderView, QProgressBar,
@@ -13,6 +14,14 @@ from PySide6.QtCore import Qt, QThread, Signal
 from core.excel_parser import load_benchmark_excel
 from core.naver_payload import build_origin_product_payload, validate_account_defaults
 from core.naver_addressbook import fetch_all_addressbooks, guess_id_field
+
+import sys
+import traceback
+
+def _global_excepthook(exc_type, exc_value, exc_tb):
+    traceback.print_exception(exc_type, exc_value, exc_tb)
+
+sys.excepthook = _global_excepthook
 
 CONFIG_PATH = "config_accounts.json"
 
@@ -110,6 +119,46 @@ class NaverCommerceClient:
                 return {"message": f"HTTP {res.status_code}: {res.text[:200]}"}
 
         return {"message": f"{max_retries}회 재시도 후에도 실패 (마지막 상태코드 {res.status_code})"}
+
+    def upload_images(self, image_urls: list) -> list:
+        """외부 이미지 URL을 다운로드해 네이버 '상품 이미지 다건 등록 API'로 업로드하고,
+        상품 등록에 실제로 쓸 수 있는 네이버 자체 URL 목록을 반환한다.
+        (representativeImage.url에 외부 링크를 직접 넣으면 반려되기 때문에 반드시 필요한 단계)
+        """
+        if not image_urls:
+            return []
+
+        token = self.get_token()
+
+        files = []
+        for i, url in enumerate(image_urls):
+            img_res = self.http.get(url, timeout=15.0, follow_redirects=True)
+            img_res.raise_for_status()
+            content_type = img_res.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
+            if not content_type.startswith("image/"):
+                content_type = "image/jpeg"
+            ext = content_type.split("/")[-1]
+            filename = f"image_{i}.{ext}"
+            files.append(("imageFiles", (filename, img_res.content, content_type)))
+
+        headers = {"Authorization": f"Bearer {token}"}
+        upload_url = f"{self.base_url}/v1/product-images/upload"
+        res = self.http.post(upload_url, headers=headers, files=files)
+
+        try:
+            res_json = res.json()
+        except Exception:
+            raise Exception(f"이미지 업로드 응답 파싱 실패 (HTTP {res.status_code}): {res.text[:200]}")
+
+        if res.status_code != 200:
+            err_msg = res_json.get("message", str(res_json))
+            raise Exception(f"이미지 업로드 실패 (HTTP {res.status_code}): {err_msg}")
+
+        images = res_json.get("images", [])
+        urls = [img.get("url") for img in images if img.get("url")]
+        if len(urls) != len(image_urls):
+            raise Exception(f"이미지 업로드 개수 불일치: 요청 {len(image_urls)}건 / 응답 {len(urls)}건 - 응답 원문: {res_json}")
+        return urls
 
 
 # ==========================================
@@ -335,61 +384,86 @@ class BenchmarkUploadWorker(QThread):
         success, fail = 0, 0
         total = len(self.data_list)
 
-        # 0. 채널별 배송/AS 기본값 사전 검증 — 누락 시 전송 자체를 시작하지 않음
-        for idx, defaults in enumerate(self.client_defaults):
-            missing = validate_account_defaults(defaults)
-            if missing:
-                self.error_signal.emit(
-                    f"채널 #{idx+1}의 배송/AS 기본값이 비어 있습니다: " + ", ".join(missing) +
-                    "\n[채널 자격증명 설정]에서 해당 채널의 '출고지/반품지 자동조회'를 먼저 실행해 주세요."
-                )
-                return
+        try:
+            # 0. 채널별 배송/AS 기본값 사전 검증
+            for idx, defaults in enumerate(self.client_defaults):
+                missing = validate_account_defaults(defaults)
+                if missing:
+                    self.error_signal.emit(
+                        f"채널 #{idx+1}의 배송/AS 기본값이 비어 있습니다: " + ", ".join(missing) +
+                        "\n[채널 자격증명 설정]에서 해당 채널의 '출고지/반품지 자동조회'를 먼저 실행해 주세요."
+                    )
+                    return
 
-        # 1. 전송 시작 전 각 계정별 토큰 사전 검증
-        for idx, client in enumerate(self.clients):
-            try:
-                client.get_token()
-            except Exception as e:
-                self.error_signal.emit(f"채널 #{idx+1} 네이버 API 토큰 발급 실패:\n{str(e)}")
-                return
+            # 1. 토큰 사전 검증
+            for idx, client in enumerate(self.clients):
+                try:
+                    client.get_token()
+                except Exception as e:
+                    self.error_signal.emit(f"채널 #{idx+1} 네이버 API 토큰 발급 실패:\n{str(e)}")
+                    return
 
-        # 2. 실제 순차 전송 루프
-        for row_idx, item in enumerate(self.data_list):
-            if not self.is_running:
-                self.finished_signal.emit(success, fail, "사용자에 의해 작업이 중단되었습니다.")
-                return
+            # 2. 실제 순차 전송 루프
+            for row_idx, item in enumerate(self.data_list):
+                if not self.is_running:
+                    self.finished_signal.emit(success, fail, "사용자에 의해 작업이 중단되었습니다.")
+                    return
 
-            client_idx = row_idx % len(self.clients) if self.round_robin else 0
-            client = self.clients[client_idx]
-            defaults = self.client_defaults[client_idx]
-            payload = build_origin_product_payload(item, defaults)
+                client_idx = row_idx % len(self.clients) if self.round_robin else 0
+                client = self.clients[client_idx]
+                defaults = self.client_defaults[client_idx]
 
-            try:
-                res = client.upload_product(payload)
-                if "originProductNo" in res:
-                    prod_no = res["originProductNo"]
-                    status_text = f"성공 (No: {prod_no})"
-                    success += 1
-                elif "message" in res:
-                    status_text = f"실패: {res.get('message')}"
+                try:
+                    thumb_url = item.get("thumb", "")
+                    optional_urls = [u for u in (item.get("optional_images") or []) if u]
+                    source_image_urls = [u for u in [thumb_url] + optional_urls if u]
+
+                    item_for_payload = dict(item)
+                    if source_image_urls:
+                        uploaded_urls = client.upload_images(source_image_urls)
+                        item_for_payload["thumb"] = uploaded_urls[0]
+                        item_for_payload["optional_images"] = uploaded_urls[1:]
+
+                    payload = build_origin_product_payload(item_for_payload, defaults)
+                    res = client.upload_product(payload)
+                    if "originProductNo" in res:
+                        prod_no = res["originProductNo"]
+                        status_text = f"성공 (No: {prod_no})"
+                        success += 1
+                    elif "message" in res:
+                        base_msg = res.get("message", "")
+                        invalid_list = res.get("invalidInputs") or res.get("invalidInputsErrors") or []
+                        if invalid_list:
+                            detail_parts = []
+                            for d in invalid_list:
+                                field = d.get("name") or d.get("field") or "?"
+                                reason = d.get("message") or d.get("code") or ""
+                                detail_parts.append(f"[{field}] {reason}")
+                            base_msg = base_msg + " → " + " / ".join(detail_parts)
+                        status_text = f"실패: {base_msg[:400]}"
+                        fail += 1
+                    else:
+                        status_text = f"응답 확인 필요 ({str(res)[:200]})"
+                        fail += 1
+                except Exception as e:
+                    status_text = f"오류: {str(e)[:300]}"
                     fail += 1
-                else:
-                    status_text = f"응답 확인 필요 ({str(res)[:25]})"
-                    fail += 1
-            except Exception as e:
-                status_text = f"오류: {str(e)[:60]}"
-                fail += 1
 
-            progress_pct = int(((row_idx + 1) / total) * 100)
-            self.progress_signal.emit(progress_pct, row_idx, item["code"] or f"LOT-{row_idx:05d}", status_text, "")
+                progress_pct = int(((row_idx + 1) / total) * 100)
+                self.progress_signal.emit(progress_pct, row_idx, item["code"] or f"LOT-{row_idx:05d}", status_text, "")
 
-            # 스마트스토어 초당 호출 제한(Rate Limit) 준수
-            self.msleep(350)
+                # 스마트스토어 초당 호출 제한(Rate Limit) 준수
+                self.msleep(350)
 
-        for client in self.clients:
-            client.close()
+            for client in self.clients:
+                client.close()
 
-        self.finished_signal.emit(success, fail, "모든 규격 데이터 릴리즈가 완료되었습니다.")
+            self.finished_signal.emit(success, fail, "모든 규격 데이터 릴리즈가 완료되었습니다.")
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self.error_signal.emit(f"예상치 못한 오류로 작업이 중단되었습니다:\n{e}")
 
     def stop(self):
         self.is_running = False
@@ -578,12 +652,18 @@ class ReleaserBenchmarkPage(QWidget):
         self.reset_ui_state()
 
     def on_upload_finished(self, success, fail, reason):
-        QMessageBox.information(
-            self, "공정 종료",
-            f"{reason}\n\n• 정상 출하 성공: {success:,}건\n• 규격 누락/실패: {fail:,}건"
-        )
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Information)
+        msg_box.setWindowTitle("공정 종료")
+        msg_box.setText(f"{reason}\n\n• 정상 출하 성공: {success:,}건\n• 규격 누락/실패: {fail:,}건")
+        msg_box.setFont(QFont("Malgun Gothic", 10))
+        msg_box.setStyleSheet("""
+            QLabel { min-width: 340px; min-height: 90px; }
+            QPushButton { min-width: 80px; padding: 4px 12px; }
+        """)
+        msg_box.exec()
         self.reset_ui_state()
-
+        
     def reset_ui_state(self):
         self.btn_start.setEnabled(True)
         self.btn_stop.setEnabled(False)

@@ -28,10 +28,11 @@ def build_origin_product_payload(item: dict, defaults: dict) -> dict:
             "representativeImage": {"url": item["thumb"]}
         },
         "salePrice": int(item["raw_price"]),
-        "stockQuantity": int(item.get("simple_stock", 100)) if not item.get("combos") else sum(c["stockQuantity"] for c in item["combos"]),
+        "stockQuantity": int(item.get("simple_stock", 100)) if not item.get("combos") else sum(c["stock"] for c in item["combos"]),
         "deliveryInfo": {
             "deliveryType": "DELIVERY",
             "deliveryAttributeType": "NORMAL",
+            "deliveryCompany": defaults.get("delivery_company") or "CJGLS",
             "deliveryFee": {
                 "deliveryFeeType": "FREE",
                 "baseFee": 0
@@ -52,7 +53,25 @@ def build_origin_product_payload(item: dict, defaults: dict) -> dict:
                 "originAreaCode": "0200037",
                 "importer": "상세페이지 참조"
             },
-            "minorPurchasable": True
+            "minorPurchasable": True,
+            "productInfoProvidedNotice": {
+                "productInfoProvidedNoticeType": "ETC",
+                "etc": {
+                    "itemName": item["name"][:100],
+                    "modelName": "상세페이지 참조",
+                    "manufacturer": "상세페이지 참조",
+                    "afterServiceDirector": as_tel,
+                    "certificateDetails": "상세페이지 참조",
+                    "returnCostReason": "상세페이지 참조",
+                    "noRefundReason": "상세페이지 참조",
+                    "qualityAssuranceStandard": "상세페이지 참조",
+                    "compensationProcedure": "상세페이지 참조",
+                    "troubleShootingContents": "상세페이지 참조"
+                }
+            },
+            "certificationTargetExcludeContent": {
+                "kcCertifiedProductExclusionYn": "TRUE"
+            }
         }
     }
 
@@ -60,13 +79,38 @@ def build_origin_product_payload(item: dict, defaults: dict) -> dict:
         origin_product["images"]["optionalImages"] = [{"url": u} for u in item["optional_images"][:9]]
 
     if item.get("combos"):
+        naver_combos = []
+        for c in item["combos"]:
+            combo_entry = {
+                "optionName1": c["opt1"],
+                "stockQuantity": c["stock"],
+                "price": c["extra_price"],
+                "usable": c["usable"],
+            }
+            if c.get("opt2"):
+                combo_entry["optionName2"] = c["opt2"]
+            if c.get("opt3"):
+                combo_entry["optionName3"] = c["opt3"]
+            if c.get("seller_code"):
+                combo_entry["sellerManagerCode"] = c["seller_code"]
+            naver_combos.append(combo_entry)
+
         origin_product["detailAttribute"]["optionInfo"] = {
             "optionSimple": [],
             "optionCustom": [],
             "optionCombinationGroupNames": {
                 "optionGroupName1": item.get("opt_name") or "사양"
             },
-            "optionCombinations": item["combos"]
+            "optionCombinations": naver_combos,
+            "useStockManagement": True
         }
 
-    return {"originProduct": origin_product}
+    return {
+        "originProduct": origin_product,
+        "smartstoreChannelProduct": {
+            "channelProductName": item["name"][:100],
+            "naverShoppingRegistration": True,
+            "channelProductDisplayStatusType": "ON",
+            "storeKeepExclusiveProduct": False
+        }
+    }

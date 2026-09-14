@@ -3,10 +3,12 @@ from PySide6.QtWidgets import (
     QLabel, QFrame, QGridLayout, QTextEdit, QButtonGroup
 )
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont
 
 class DashboardPage(QWidget):
     def __init__(self, nav_callback):
         super().__init__()
+        self.setFont(QFont("Malgun Gothic", 9))
         self.nav_callback = nav_callback
         
         # 샘플 공정 실적 데이터셋 (천 단위 구분 기호 및 백분율 적용)
@@ -82,9 +84,12 @@ class DashboardPage(QWidget):
         quick_desc.setStyleSheet("color: #8c8e94; font-size: 12px;")
         
         btn_go_release = QPushButton("시제품 확정 작업실 이동")
-        btn_go_release.setFixedHeight(42)
+        btn_go_release.setMinimumHeight(42)
         btn_go_release.setStyleSheet("""
-            QPushButton { background-color: #365880; color: white; font-weight: bold; border-radius: 5px; font-size: 13px; }
+            QPushButton {
+                background-color: #365880; color: white; font-weight: bold;
+                border-radius: 5px; font-size: 13px; padding: 6px 10px;
+            }
             QPushButton:hover { background-color: #436d9d; }
         """)
         btn_go_release.clicked.connect(lambda: self.nav_callback(4))
@@ -168,7 +173,7 @@ class DashboardPage(QWidget):
         b_layout.setContentsMargins(8, 4, 8, 4)
 
         sub_total = QLabel(f"전체: {data['total']}")
-        sub_total.setStyleSheet("color: #bcbec4; font-size: 11px;")
+        sub_total.setStyleSheet("color: #bcbec4; font-size: 11px; font-weight: bold;")
         sub_month = QLabel(f"금월: {data['month']}")
         sub_month.setStyleSheet("color: #629755; font-size: 11px; font-weight: bold;")
         sub_today = QLabel(f"금일: +{data['today']}")
@@ -192,7 +197,7 @@ class DashboardPage(QWidget):
         for btn in [self.btn_total, self.btn_month, self.btn_today]:
             self.apply_filter_btn_style(btn, btn == self.btn_group.button(btn_id))
 
-        field_map = {0: ("total", ""), 1: ("month", "[금월] "), 2: ("today", "[금일] +")}
+        field_map = {0: ("total", "[전체] "), 1: ("month", "[금월] "), 2: ("today", "[금일] +")}
         field, prefix = field_map[btn_id]
 
         for key, card in self.card_widgets.items():

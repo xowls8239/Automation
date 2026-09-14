@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QStackedWidget, QFrame
 )
+
 from pages.dashboard_page import DashboardPage
 from pages.competitor_page import CompetitorPage
 from pages.parts_page import PartsPage
@@ -125,7 +126,15 @@ class EngineeringMainWindow(QMainWindow):
                 """)
 
 if __name__ == "__main__":
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QFont
+
+    QApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+    )
+
     app = QApplication(sys.argv)
+    app.setFont(QFont("Malgun Gothic", 9))
 
     # 팝업 전역 다크 테마 적용
     app.setStyleSheet("""
