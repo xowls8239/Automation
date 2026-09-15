@@ -70,7 +70,7 @@ class EngineeringMainWindow(QMainWindow):
 
         # 페이지 스택
         self.pages_stack = QStackedWidget()
-        
+
         self.page_dashboard = DashboardPage(self.navigate_by_index)
         self.page_competitor = CompetitorPage()
         self.page_parts = PartsPage()
@@ -107,6 +107,12 @@ class EngineeringMainWindow(QMainWindow):
         return btn
 
     def navigate_by_index(self, index):
+        # 같은 메뉴를 다시 눌렀다면, 그 페이지에 "재진입" 신호를 보내서 내부 상태를 리셋시킴
+        if self.pages_stack.currentIndex() == index:
+            current_page = self.pages_stack.widget(index)
+            if hasattr(current_page, "on_menu_reactivated"):
+                current_page.on_menu_reactivated()
+
         self.pages_stack.setCurrentIndex(index)
         for i, btn in enumerate(self.nav_buttons):
             if i == index:
@@ -124,6 +130,7 @@ class EngineeringMainWindow(QMainWindow):
                     }
                     QPushButton:hover { background-color: #35373c; color: #ffffff; }
                 """)
+
 
 if __name__ == "__main__":
     from PySide6.QtCore import Qt
