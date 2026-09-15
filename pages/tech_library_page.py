@@ -43,7 +43,7 @@ def verify_naver_token(client_id: str, client_secret: str) -> tuple[bool, str]:
             res = client.post(token_url, data=token_data)
             res_json = res.json()
             if res.status_code == 200 and "access_token" in res_json:
-                return True, "네이버 커머스 인증 성공 (스토어 연동 완료)"
+                return True, "네이버 커머스 인증 성공 (연동 완료)"
             return False, res_json.get("message", res.text)
     except Exception as e:
         return False, f"서버 통신 실패: {str(e)}"
@@ -51,7 +51,7 @@ def verify_naver_token(client_id: str, client_secret: str) -> tuple[bool, str]:
 class AccountLinkDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("스마트스토어 채널 계정 연동 (로그인 인증 설정)")
+        self.setWindowTitle("채널 계정 연동 (로그인 인증 설정)")
         self.resize(520, 380)
         self.setStyleSheet("background-color: #2b2d30; color: #bcbec4;")
         layout = QVBoxLayout(self)
@@ -259,11 +259,11 @@ class TechLibraryPage(QWidget):
         self.lbl_auth_badge = QLabel("● 연동 확인 중")
         self.lbl_auth_badge.setStyleSheet("color: #e5c07b; font-size: 12px; font-weight: bold; margin-right: 5px;")
 
-        self.btn_account_config = QPushButton("스토어 계정 연동 관리")
+        self.btn_account_config = QPushButton("계정 연동 관리")
         self.btn_account_config.setStyleSheet("background-color: #43454a; color: white; padding: 8px 12px; font-weight: bold; border-radius: 4px;")
         self.btn_account_config.clicked.connect(self.open_account_dialog)
 
-        self.btn_sync = QPushButton("스토어 전수 규격 동기화")
+        self.btn_sync = QPushButton("전수 규격 동기화")
         self.btn_sync.setStyleSheet("background-color: #365880; color: white; padding: 8px 15px; font-weight: bold; border-radius: 4px;")
         self.btn_sync.clicked.connect(self.start_sync)
 
@@ -343,7 +343,7 @@ class TechLibraryPage(QWidget):
     def start_sync(self):
         sel_idx = self.combo_channel.currentIndex() + 1
         if not os.path.exists(CONFIG_PATH):
-            QMessageBox.critical(self, "연동 필요", "[스토어 계정 연동 관리]를 눌러 API 키를 먼저 입력해 주세요.")
+            QMessageBox.critical(self, "연동 필요", "[계정 연동 관리]를 눌러 API 키를 먼저 입력해 주세요.")
             return
 
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -406,7 +406,7 @@ class TechLibraryPage(QWidget):
 
     def export_1000_chunks(self):
         if not self.library_db:
-            QMessageBox.warning(self, "데이터 없음", "추출할 데이터가 없습니다. 먼저 스토어 동기화를 실행해 주세요.")
+            QMessageBox.warning(self, "데이터 없음", "추출할 데이터가 없습니다. 먼저 동기화를 실행해 주세요.")
             return
 
         folder = QFileDialog.getExistingDirectory(self, "1,000개 단위 분할 엑셀 저장 폴더 선택")
