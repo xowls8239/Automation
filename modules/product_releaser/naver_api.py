@@ -51,3 +51,19 @@ class NaverCommerceAPI:
         }
         res = httpx.post(url, headers=headers, json=payload, timeout=15.0)
         return res.json()
+
+    def get_product_list(self, page: int = 1, size: int = 100) -> dict:
+        """
+        상품 목록 조회 API
+        - 등록된 상품들의 원상품번호(originProductNo) 목록을 페이징으로 가져옴
+        - ⚠️ 정확한 엔드포인트 경로/파라미터명은 문서 확인 필요
+        """
+        token = self.get_token()
+        url = f"{self.base_url}/v1/products/search"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+        params = {"page": page, "size": size}
+        res = httpx.get(url, headers=headers, params=params, timeout=15.0)
+        return res.json()

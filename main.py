@@ -13,6 +13,7 @@ from pages.dashboard_page import DashboardPage
 from pages.competitor_page import CompetitorPage
 from pages.parts_page import PartsPage
 from pages.review_page import ReviewPage
+from pages.product_import_page import ProductImportPage   # ← 신규 추가
 from pages.tech_library_page import TechLibraryPage
 from pages.releaser_review_page import ReleaserReviewPage
 from pages.releaser_benchmark_page import ReleaserBenchmarkPage
@@ -43,11 +44,12 @@ class EngineeringMainWindow(QMainWindow):
         logo_label.setStyleSheet("color: #7a7e85; font-weight: bold; font-size: 11px; padding-left: 8px; margin-bottom: 12px;")
         side_layout.addWidget(logo_label)
 
-        # 7대 메뉴 버튼 리스트
+        # 7대 메뉴 버튼 리스트 → 8대로 변경
         self.btn_home = self.create_nav_button("홈")
         self.btn_competitor = self.create_nav_button("경쟁사/제품 분석")
         self.btn_parts = self.create_nav_button("자사 제품 분석")
         self.btn_review = self.create_nav_button("설계 검토")
+        self.btn_sample_data = self.create_nav_button("샘플 데이터")   # ← 신규 추가
         self.btn_tech_lib = self.create_nav_button("기술 라이브러리")
         self.btn_rel_review = self.create_nav_button("시제품 확정_설계검토")
         self.btn_rel_bench = self.create_nav_button("시제품 확정_벤치마킹")
@@ -57,6 +59,7 @@ class EngineeringMainWindow(QMainWindow):
             self.btn_competitor,
             self.btn_parts,
             self.btn_review,
+            self.btn_sample_data,   # ← 신규 추가 (기술 라이브러리 바로 위)
             self.btn_tech_lib,
             self.btn_rel_review,
             self.btn_rel_bench
@@ -75,17 +78,19 @@ class EngineeringMainWindow(QMainWindow):
         self.page_competitor = CompetitorPage()
         self.page_parts = PartsPage()
         self.page_review = ReviewPage()
+        self.page_sample_data = ProductImportPage()   # ← 신규 추가
         self.page_tech_lib = TechLibraryPage()
         self.page_rel_review = ReleaserReviewPage()
         self.page_rel_bench = ReleaserBenchmarkPage()
 
-        self.pages_stack.addWidget(self.page_dashboard)   # Index 0
-        self.pages_stack.addWidget(self.page_competitor)  # Index 1
-        self.pages_stack.addWidget(self.page_parts)       # Index 2
-        self.pages_stack.addWidget(self.page_review)      # Index 3
-        self.pages_stack.addWidget(self.page_tech_lib)    # Index 4
-        self.pages_stack.addWidget(self.page_rel_review)  # Index 5
-        self.pages_stack.addWidget(self.page_rel_bench)   # Index 6
+        self.pages_stack.addWidget(self.page_dashboard)     # Index 0
+        self.pages_stack.addWidget(self.page_competitor)    # Index 1
+        self.pages_stack.addWidget(self.page_parts)         # Index 2
+        self.pages_stack.addWidget(self.page_review)        # Index 3
+        self.pages_stack.addWidget(self.page_sample_data)   # Index 4 ← 신규
+        self.pages_stack.addWidget(self.page_tech_lib)      # Index 5 (기존 4→5)
+        self.pages_stack.addWidget(self.page_rel_review)    # Index 6 (기존 5→6)
+        self.pages_stack.addWidget(self.page_rel_bench)     # Index 7 (기존 6→7)
 
         root_layout.addWidget(self.pages_stack)
 
